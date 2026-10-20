@@ -1,0 +1,83 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: air_quality_db
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-airwatch_dev}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 15
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      DB_USER: ${DB_USER:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-airwatch_dev}
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: air_quality_db
+      MONGODB_URI: mongodb://mongo:27017/airwatch
+      REDIS_URL: redis://redis:6379
+      REPORT_UPLOAD_DIR: /app/uploads/reports
+      REVERSE_GEOCODING_URL: ${REVERSE_GEOCODING_URL:-https://nominatim.openstreetmap.org/reverse}
+      JWT_SECRET: ${JWT_SECRET:-replace-this-local-dev-secret}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-airwatch_admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-airwatch.admin@local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-Admin@123}
+    volumes:
+      - report_uploads:/app/uploads/reports
+    ports:
+      - "5000:5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  mongo_data:
+  redis_data:
+  report_uploads:

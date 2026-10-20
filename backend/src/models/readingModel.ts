@@ -1,0 +1,11 @@
+import { pool } from '../config/db';
+import { Reading } from '../types';
+const columns = 'id, station_id, aqi, pm2_5, pm10, no2, so2, recorded_at';
+export const getAllReadings = async (stationId?: number): Promise<Reading[]> => (await pool.query(`SELECT ${columns} FROM readings ${stationId ? 'WHERE station_id=$1' : ''} ORDER BY recorded_at DESC LIMIT 2000`, stationId ? [stationId] : [])).rows;
+export const getReadingById = async (id:number):Promise<Reading|null> => (await pool.query(`SELECT ${columns} FROM readings WHERE id=$1`,[id])).rows[0]||null;
+export const createReading = async (station_id:number,aqi:number,pm2_5:number,pm10:number,no2:number,so2:number,recorded_at?:string):Promise<Reading> => (await pool.query(`INSERT INTO readings(station_id,aqi,pm2_5,pm10,no2,so2,recorded_at) VALUES($1,$2,$3,$4,$5,$6,COALESCE($7::timestamptz,NOW())) RETURNING ${columns}`,[station_id,aqi,pm2_5,pm10,no2,so2,recorded_at||null])).rows[0];
+export const updateReading = async (id:number,station_id:number,aqi:number,pm2_5:number,pm10:number,no2:number,so2:number,recorded_at?:string):Promise<Reading|null> => (await pool.query(`UPDATE readings SET station_id=$1,aqi=$2,pm2_5=$3,pm10=$4,no2=$5,so2=$6,recorded_at=COALESCE($7::timestamptz,recorded_at) WHERE id=$8 RETURNING ${columns}`,[station_id,aqi,pm2_5,pm10,no2,so2,recorded_at||null,id])).rows[0]||null;
+export const deleteReading = async (id:number):Promise<boolean> => (await pool.query('DELETE FROM readings WHERE id=$1',[id])).rowCount !== 0;
+export const getLatestReadingByStation = async (stationId:number):Promise<Reading|null> => (await pool.query(`SELECT ${columns} FROM readings WHERE station_id=$1 ORDER BY recorded_at DESC LIMIT 1`,[stationId])).rows[0]||null;
+export const getHistoryByStation = async (stationId:number,from?:string,to?:string):Promise<Reading[]> => (await pool.query(`SELECT ${columns} FROM readings WHERE station_id=$1 AND ($2::timestamptz IS NULL OR recorded_at >= $2) AND ($3::timestamptz IS NULL OR recorded_at <= $3) ORDER BY recorded_at ASC`,[stationId,from||null,to||null])).rows;
+export const getTrendsByStation = async (stationId:number):Promise<Partial<Reading>[]> => (await pool.query('SELECT recorded_at,aqi,pm2_5,pm10,no2,so2 FROM readings WHERE station_id=$1 ORDER BY recorded_at ASC',[stationId])).rows;
