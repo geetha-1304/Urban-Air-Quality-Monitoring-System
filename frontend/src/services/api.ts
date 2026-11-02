@@ -4,7 +4,7 @@ import { User, UserPreferences } from '../types/user';
 import { PollutionReportList, PollutionReport, PollutionReportStats, PollutionReportStatus } from '../types/pollutionReport';
 import { NotificationFeed } from '../types/notification';
 
-const api = axios.create({ baseURL: 'http://localhost:5000/api', timeout: 8000 });
+const api = axios.create({ baseURL: 'https://urban-air-quality-monitoring-system.onrender.com/api', timeout: 8000 });
 
 // ---- session (remember me = localStorage, otherwise sessionStorage) ----
 const store = () => (localStorage.getItem('aw_token') ? localStorage : sessionStorage);
